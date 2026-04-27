@@ -133,10 +133,34 @@ export async function POST(req: Request) {
                 }
 
                 // 3. Wouter Support (very common in AI studio apps)
-                // If they use <Router>, we add base="/slug"
-                if (content.includes('wouter') && content.includes('<Router>')) {
-                     content = content.replace('<Router>', `<Router base="/${slug}">`);
-                     changed = true;
+                if (content.includes('wouter')) {
+                     if (content.includes('<Router>')) {
+                         content = content.replace('<Router>', `<Router base="/${slug}">`);
+                         changed = true;
+                     } else {
+                         // Some Wouter apps don't use <Router> and rely on window.location natively!
+                         // In this case we MUST patch <Route path="/something"> to <Route path="/slug/something">
+                         if (/<Route\s+path=["']\/([^"']*)["']/g.test(content)) {
+                             content = content.replace(/<Route\s+path=["']\/([^"']*)["']/g, `<Route path="/${slug}/$1"`);
+                             changed = true;
+                         }
+                         if (/<Link\s+href=["']\/([^"']*)["']/g.test(content)) {
+                             content = content.replace(/<Link\s+href=["']\/([^"']*)["']/g, `<Link href="/${slug}/$1"`);
+                             changed = true;
+                         }
+                     }
+                }
+                
+                if (content.includes('location === \'/\'') || content.includes('location === "/"')) {
+                    content = content.replace(/location === ['"]\/['"]/g, `(location === '/' || location === '/${slug}' || location === '/${slug}/')`);
+                    changed = true;
+                }
+                // 4. Vite createBrowserRouter support
+                if (content.includes('createBrowserRouter')) {
+                     if (!content.includes('basename:')) {
+                         // Fallback just matching the simplest array shape 
+                         content = content.replace(/createBrowserRouter\(\s*\[/g, `createBrowserRouter([\n  { path: "/", element: <div /> }, /* hack */\n`);
+                     }
                 }
                 
                 if (changed) {

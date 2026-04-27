@@ -1,0 +1,1 @@
+{"name":"ai-studio-app","scripts":{"build":"vite build"},"devDependencies":{"vite":"*","@vitejs/plugin-react":"*"},"dependencies":{"react":"*","react-dom":"*","react-router-dom":"*","wouter":"*"}}

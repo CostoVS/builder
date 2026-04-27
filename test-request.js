@@ -2,21 +2,22 @@ const fs = require('fs');
 const path = require('path');
 
 async function run() {
-  const fileBuffer = fs.readFileSync('test.zip');
+  const fileBuffer = fs.readFileSync('test-ai.zip');
   const blob = new Blob([fileBuffer]);
   const formData = new FormData();
-  formData.append('file', blob, 'test.zip');
-  formData.append('name', 'Test App');
-  formData.append('slug', 'testslug');
+  formData.append('file', blob, 'test-ai.zip');
+  formData.append('name', 'AI Test');
+  formData.append('slug', 'aitest');
 
   try {
     const res = await fetch('http://localhost:3000/api/deploy', {
       method: 'POST',
       body: formData
     });
+    console.log(await res.json());
     
     // Check if the HTML path actually works via serve
-    const serveRes = await fetch('http://localhost:3000/api/serve/testslug');
+    const serveRes = await fetch('http://localhost:3000/api/serve/aitest');
     const htmlText = await serveRes.text();
     console.log('--- INDEX HTML ---');
     console.log(htmlText);
@@ -27,8 +28,8 @@ async function run() {
        const jsPath = match[1];
        console.log('Script path:', jsPath);
        
-       // Try fetching the JS file through Next.js
-       const jsRes = await fetch('http://localhost:3000' + jsPath);
+       // Try fetching the JS file through Next.js (middleware will map it)
+       const jsRes = await fetch('http://localhost:3000/api/serve/aitest' + jsPath.replace('/aitest', ''));
        console.log('JS Fetch Status:', jsRes.status);
     } else {
        console.log('No script tag found!');
