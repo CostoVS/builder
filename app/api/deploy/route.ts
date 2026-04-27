@@ -57,15 +57,11 @@ export async function POST(req: Request) {
     // Cleanup Zip
     fs.unlinkSync(zipPath);
 
-    // AI Studio Export Fixes: Replace Title and inject a default Favicon
+    // AI Studio Export Fixes: Replace Title and inject a default Favicon before build
     const indexPath = path.join(appDir, 'index.html');
     if (fs.existsSync(indexPath)) {
         let indexHtmlContent = fs.readFileSync(indexPath, 'utf-8');
-        
-        // Replace Default Title
         indexHtmlContent = indexHtmlContent.replace(/<title>.*?<\/title>/i, `<title>${appName}</title>`);
-        
-        // Inject an emoji Favicon if missing
         if (!indexHtmlContent.includes('rel="icon"')) {
             indexHtmlContent = indexHtmlContent.replace(
                 '</head>',
@@ -84,9 +80,30 @@ export async function POST(req: Request) {
            execSync('npm run build', { cwd: appDir, stdio: 'inherit' });
        } catch (buildErr: any) {
            console.error('Build failed for app:', slug, buildErr);
-           // We throw here so the user on frontend knows it failed to build
            throw new Error(`Build failed: ${buildErr.message || "Unknown error during npm build"}`);
        }
+    }
+
+    // Post-Build fixes for Subpath deployment blanks (Fixing Absolute Paths)
+    const builtIndexPath = path.join(appDir, 'dist', 'index.html');
+    const finalIndexToPatch = fs.existsSync(builtIndexPath) ? builtIndexPath : indexPath;
+    if (fs.existsSync(finalIndexToPatch)) {
+        let content = fs.readFileSync(finalIndexToPatch, 'utf-8');
+        
+        // Convert strict absolute paths from Vite to use the dynamic slug so they work perfectly under /slug/
+        content = content.replace(/href="\/assets\//g, `href="/${slug}/assets/`);
+        content = content.replace(/src="\/assets\//g, `src="/${slug}/assets/`);
+        content = content.replace(/href="\/vite\.svg"/g, `href="/${slug}/vite.svg"`);
+        
+        // Also ensure title and favicon are replaced in the generated dist just in case it ignored our pre-build file
+        content = content.replace(/<title>.*?<\/title>/i, `<title>${appName}</title>`);
+        if (!content.includes('rel="icon"')) {
+            content = content.replace(
+                '</head>',
+                `  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">\n  </head>`
+            );
+        }
+        fs.writeFileSync(finalIndexToPatch, content);
     }
 
     // Record in DB
