@@ -87,45 +87,45 @@ export async function POST(req: Request) {
         }
     }
 
-    // Replace React Router base name if it exists so routing works on subpaths
-    const mainPath = path.join(appDir, 'src', 'main.tsx');
-    if (fs.existsSync(mainPath)) {
-        let mainContent = fs.readFileSync(mainPath, 'utf8');
-        if (mainContent.includes('<BrowserRouter>')) {
-             mainContent = mainContent.replace('<BrowserRouter>', `<BrowserRouter basename="/${slug}">`);
-             fs.writeFileSync(mainPath, mainContent);
-             console.log(`Injected React Router basename into main.tsx`);
-        }
-    }
-
-    // AI Studio "Plain React" Routing Fix: 
-    // Gemini often writes `if (window.location.pathname === '/') { return <Home /> }`
-    // We must replace this so it knows `/slug` is the new home!
-    const replaceWindowLocation = (dir: string) => {
+    // Deep scan all components to inject React Router basenames and fix raw location checks
+    const patchReactSource = (dir: string) => {
         if (!fs.existsSync(dir)) return;
         const files = fs.readdirSync(dir);
         for (const file of files) {
             const fullPath = path.join(dir, file);
             if (fs.statSync(fullPath).isDirectory()) {
-                replaceWindowLocation(fullPath);
+                patchReactSource(fullPath);
             } else if (fullPath.endsWith('.ts') || fullPath.endsWith('.tsx') || fullPath.endsWith('.js') || fullPath.endsWith('.jsx')) {
                 let content = fs.readFileSync(fullPath, 'utf8');
                 let changed = false;
                 
-                if (content.includes("window.location.pathname === '/'")) {
-                    content = content.replace(/window\.location\.pathname === '\/'/g, `(window.location.pathname === '/' || window.location.pathname === '/${slug}' || window.location.pathname === '/${slug}/')`);
-                    changed = true;
-                }
-                if (content.includes('window.location.pathname === "/"')) {
-                    content = content.replace(/window\.location\.pathname === "\/"/g, `(window.location.pathname === '/' || window.location.pathname === '/${slug}' || window.location.pathname === '/${slug}/')`);
+                // 1. Raw vanilla location checks
+                if (content.match(/window\.location\.pathname === ['"]\/['"]/)) {
+                    content = content.replace(/window\.location\.pathname === ['"]\/['"]/g, `(window.location.pathname === '/' || window.location.pathname === '/${slug}' || window.location.pathname === '/${slug}/')`);
                     changed = true;
                 }
                 
-                if (changed) fs.writeFileSync(fullPath, content);
+                // 2. React Router DOM
+                if (content.includes('<BrowserRouter>')) {
+                     content = content.replace('<BrowserRouter>', `<BrowserRouter basename="/${slug}">`);
+                     changed = true;
+                }
+                
+                // 3. Wouter Support (very common in AI studio apps)
+                // If they use <Router>, we add base="/slug"
+                if (content.includes('wouter') && content.includes('<Router>')) {
+                     content = content.replace('<Router>', `<Router base="/${slug}">`);
+                     changed = true;
+                }
+                
+                if (changed) {
+                    fs.writeFileSync(fullPath, content);
+                    console.log(`Patched routing logic in ${file}`);
+                }
             }
         }
     };
-    replaceWindowLocation(path.join(appDir, 'src'));
+    patchReactSource(path.join(appDir, 'src'));
 
     // Build the app if package.json exists
     const { execSync } = require('child_process');
