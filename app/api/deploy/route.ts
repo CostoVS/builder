@@ -98,6 +98,35 @@ export async function POST(req: Request) {
         }
     }
 
+    // AI Studio "Plain React" Routing Fix: 
+    // Gemini often writes `if (window.location.pathname === '/') { return <Home /> }`
+    // We must replace this so it knows `/slug` is the new home!
+    const replaceWindowLocation = (dir: string) => {
+        if (!fs.existsSync(dir)) return;
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+            const fullPath = path.join(dir, file);
+            if (fs.statSync(fullPath).isDirectory()) {
+                replaceWindowLocation(fullPath);
+            } else if (fullPath.endsWith('.ts') || fullPath.endsWith('.tsx') || fullPath.endsWith('.js') || fullPath.endsWith('.jsx')) {
+                let content = fs.readFileSync(fullPath, 'utf8');
+                let changed = false;
+                
+                if (content.includes("window.location.pathname === '/'")) {
+                    content = content.replace(/window\.location\.pathname === '\/'/g, `(window.location.pathname === '/' || window.location.pathname === '/${slug}' || window.location.pathname === '/${slug}/')`);
+                    changed = true;
+                }
+                if (content.includes('window.location.pathname === "/"')) {
+                    content = content.replace(/window\.location\.pathname === "\/"/g, `(window.location.pathname === '/' || window.location.pathname === '/${slug}' || window.location.pathname === '/${slug}/')`);
+                    changed = true;
+                }
+                
+                if (changed) fs.writeFileSync(fullPath, content);
+            }
+        }
+    };
+    replaceWindowLocation(path.join(appDir, 'src'));
+
     // Build the app if package.json exists
     const { execSync } = require('child_process');
     if (fs.existsSync(path.join(appDir, 'package.json'))) {
@@ -125,6 +154,20 @@ export async function POST(req: Request) {
                 `  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">\n  </head>`
             );
         }
+
+        // INJECT GLOBAL ERROR CATCHER FOR EASY DEBUGGING
+        const errorScript = `
+        <script>
+        window.addEventListener('error', function(e) {
+            document.body.innerHTML += '<div style="position:fixed;top:0;left:0;right:0;background:#ff0000;color:#fff;z-index:999999;padding:20px;font-family:monospace;white-space:pre-wrap;"><b>Runtime Error:</b> ' + String(e.message) + '<br>File: ' + e.filename + ':' + e.lineno + '</div>';
+        });
+        window.addEventListener('unhandledrejection', function(e) {
+            document.body.innerHTML += '<div style="position:fixed;top:0;left:0;right:0;background:#ff0000;color:#fff;z-index:999999;padding:20px;font-family:monospace;white-space:pre-wrap;"><b>Unhandled Promise Rejection:</b> ' + String(e.reason) + '</div>';
+        });
+        </script>
+        </head>`;
+        content = content.replace('</head>', errorScript);
+
         fs.writeFileSync(finalIndexToPatch, content);
     }
 
