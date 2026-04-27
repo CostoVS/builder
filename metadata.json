@@ -1,0 +1,6 @@
+{
+  "name": "Masterchief Builder & Orb",
+  "description": "Multi-tenant app containing the Masterchief Orb landing page and the Builder deployment manager.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
