@@ -11,8 +11,8 @@ export function middleware(req: NextRequest) {
   const isMainDomain = hostname.includes('masterchief.co.za') && !isBuilderDomain;
 
   if (isBuilderDomain) {
-    // 1. Enforce Authentication on builder domain
-    if (!isAuthenticated && url.pathname !== '/login') {
+    // 1. Enforce Authentication on builder domain (allow /api/auth to go through)
+    if (!isAuthenticated && url.pathname !== '/login' && !url.pathname.startsWith('/api')) {
        // Redirect to login if unauthenticated
        url.pathname = '/login';
        return NextResponse.redirect(url);
