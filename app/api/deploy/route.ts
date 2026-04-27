@@ -57,6 +57,21 @@ export async function POST(req: Request) {
     // Cleanup Zip
     fs.unlinkSync(zipPath);
 
+    // FLATTENER LOGIC: AI Studio / Github often export with a single top-level folder.
+    // If the extracted appDir contains exactly one folder (and no files), move everything up.
+    let rootItems = fs.readdirSync(appDir).filter(f => f !== '__MACOSX' && f !== '.DS_Store');
+    if (rootItems.length === 1) {
+        const singleItemPath = path.join(appDir, rootItems[0]);
+        if (fs.statSync(singleItemPath).isDirectory()) {
+            console.log(`Flattening nested zip folder: ${rootItems[0]}`);
+            const nestedFiles = fs.readdirSync(singleItemPath);
+            for (const file of nestedFiles) {
+                fs.renameSync(path.join(singleItemPath, file), path.join(appDir, file));
+            }
+            fs.rmdirSync(singleItemPath);
+        }
+    }
+
     // AI Studio Export Fixes: Replace Title and inject a default Favicon before build
     const indexPath = path.join(appDir, 'index.html');
     if (fs.existsSync(indexPath)) {
@@ -111,6 +126,12 @@ export async function POST(req: Request) {
                      changed = true;
                 }
                 
+                // If they alias BrowserRouter as Router: import { BrowserRouter as Router } from 'react-router-dom'
+                if (content.includes('react-router-dom') && content.includes('<Router>')) {
+                     content = content.replace('<Router>', `<Router basename="/${slug}">`);
+                     changed = true;
+                }
+
                 // 3. Wouter Support (very common in AI studio apps)
                 // If they use <Router>, we add base="/slug"
                 if (content.includes('wouter') && content.includes('<Router>')) {
