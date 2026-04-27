@@ -3,16 +3,12 @@ import { getDb } from '@/lib/db';
 import AdmZip from 'adm-zip';
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
 
 export async function GET() {
   const db = getDb();
   if (!db) {
     // Return mock data for AI Studio preview environment
-    return NextResponse.json([{ id: 1, name: 'Google AI Studio App', slug: 'examplesite', status: 'mocked', created_at: new Date().toISOString() }]);
+    return NextResponse.json([{ id: 1, name: 'Example Site', slug: 'examplesite', status: 'mocked', created_at: new Date().toISOString() }]);
   }
 
   try {
@@ -55,6 +51,7 @@ export async function POST(req: Request) {
 
     // Extract
     const zip = new AdmZip(zipPath);
+    // Overwrite true
     zip.extractAllTo(appDir, true);
     
     // Cleanup Zip
@@ -63,8 +60,19 @@ export async function POST(req: Request) {
     // Record in DB
     const db = getDb();
     if (db) {
+      // Create table if it doesn't exist yet just in case initDb wasn't called early enough
+      await db.query(`
+            CREATE TABLE IF NOT EXISTS deployments (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                slug VARCHAR(255) UNIQUE NOT NULL,
+                status VARCHAR(50) DEFAULT 'deployed',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
       await db.query(
-        'INSERT INTO deployments (name, slug) VALUES ($1, $2)',
+        'INSERT INTO deployments (name, slug) VALUES ($1, $2) ON CONFLICT (slug) DO UPDATE SET name = $1',
         [appName, slug]
       );
     }
