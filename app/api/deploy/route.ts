@@ -57,6 +57,38 @@ export async function POST(req: Request) {
     // Cleanup Zip
     fs.unlinkSync(zipPath);
 
+    // AI Studio Export Fixes: Replace Title and inject a default Favicon
+    const indexPath = path.join(appDir, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        let indexHtmlContent = fs.readFileSync(indexPath, 'utf-8');
+        
+        // Replace Default Title
+        indexHtmlContent = indexHtmlContent.replace(/<title>.*?<\/title>/i, `<title>${appName}</title>`);
+        
+        // Inject an emoji Favicon if missing
+        if (!indexHtmlContent.includes('rel="icon"')) {
+            indexHtmlContent = indexHtmlContent.replace(
+                '</head>',
+                `  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">\n  </head>`
+            );
+        }
+        fs.writeFileSync(indexPath, indexHtmlContent);
+    }
+
+    // Build the app if package.json exists
+    const { execSync } = require('child_process');
+    if (fs.existsSync(path.join(appDir, 'package.json'))) {
+       try {
+           console.log(`Building app at ${appDir}...`);
+           execSync('npm install', { cwd: appDir, stdio: 'inherit' });
+           execSync('npm run build', { cwd: appDir, stdio: 'inherit' });
+       } catch (buildErr: any) {
+           console.error('Build failed for app:', slug, buildErr);
+           // We throw here so the user on frontend knows it failed to build
+           throw new Error(`Build failed: ${buildErr.message || "Unknown error during npm build"}`);
+       }
+    }
+
     // Record in DB
     const db = getDb();
     if (db) {
