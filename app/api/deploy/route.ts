@@ -71,6 +71,33 @@ export async function POST(req: Request) {
         fs.writeFileSync(indexPath, indexHtmlContent);
     }
 
+    // Force Vite to build using the proper base path so all dynamic imports and CSS paths work natively
+    for (const file of ['vite.config.ts', 'vite.config.js']) {
+        const configPath = path.join(appDir, file);
+        if (fs.existsSync(configPath)) {
+            let content = fs.readFileSync(configPath, 'utf8');
+            if (content.includes('defineConfig({')) {
+                // Ensure we don't duplicate if they deploy the same folder twice
+                if (!content.includes(`base:`)) {
+                    content = content.replace('defineConfig({', `defineConfig({\n  base: '/${slug}/',`);
+                    fs.writeFileSync(configPath, content);
+                    console.log(`Injected base: /${slug}/ into ${file}`);
+                }
+            }
+        }
+    }
+
+    // Replace React Router base name if it exists so routing works on subpaths
+    const mainPath = path.join(appDir, 'src', 'main.tsx');
+    if (fs.existsSync(mainPath)) {
+        let mainContent = fs.readFileSync(mainPath, 'utf8');
+        if (mainContent.includes('<BrowserRouter>')) {
+             mainContent = mainContent.replace('<BrowserRouter>', `<BrowserRouter basename="/${slug}">`);
+             fs.writeFileSync(mainPath, mainContent);
+             console.log(`Injected React Router basename into main.tsx`);
+        }
+    }
+
     // Build the app if package.json exists
     const { execSync } = require('child_process');
     if (fs.existsSync(path.join(appDir, 'package.json'))) {
@@ -90,12 +117,7 @@ export async function POST(req: Request) {
     if (fs.existsSync(finalIndexToPatch)) {
         let content = fs.readFileSync(finalIndexToPatch, 'utf-8');
         
-        // Convert strict absolute paths from Vite to use the dynamic slug so they work perfectly under /slug/
-        content = content.replace(/href="\/assets\//g, `href="/${slug}/assets/`);
-        content = content.replace(/src="\/assets\//g, `src="/${slug}/assets/`);
-        content = content.replace(/href="\/vite\.svg"/g, `href="/${slug}/vite.svg"`);
-        
-        // Also ensure title and favicon are replaced in the generated dist just in case it ignored our pre-build file
+        // Ensure title and favicon are replaced in the generated dist just in case it ignored our pre-build file
         content = content.replace(/<title>.*?<\/title>/i, `<title>${appName}</title>`);
         if (!content.includes('rel="icon"')) {
             content = content.replace(
