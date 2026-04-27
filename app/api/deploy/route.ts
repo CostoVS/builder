@@ -78,8 +78,12 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true, appDir });
-  } catch (err) {
-    console.error('Deploy error:', err);
-    return NextResponse.json({ error: 'Deployment failed' }, { status: 500 });
+  } catch (err: any) {
+    console.error('Deploy error details:', err.message || err);
+    return NextResponse.json({ 
+      error: 'Deployment failed', 
+      details: err.message || String(err),
+      stack: err.stack
+    }, { status: 500 });
   }
 }

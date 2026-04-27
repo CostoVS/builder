@@ -61,11 +61,12 @@ export default function BuilderDashboard() {
         fetchDeployments();
         alert('App deployed successfully!');
       } else {
-        alert('Deployment failed');
+        const data = await res.json();
+        alert(`Deployment failed: ${data.error}${data.details ? `\n\nDetails: ${data.details}` : ''}`);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Internal error');
+      alert(`Internal error: ${e.message}`);
     } finally {
       setDeploying(false);
     }
