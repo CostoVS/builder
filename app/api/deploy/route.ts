@@ -149,15 +149,33 @@ export async function POST(req: Request) {
     patchReactSource(path.join(appDir, 'src'));
 
     // Build the app if package.json exists
+    let buildLog = '';
     const { execSync } = require('child_process');
     if (fs.existsSync(path.join(appDir, 'package.json'))) {
        try {
            console.log(`Building app at ${appDir}...`);
-           execSync('npm install', { cwd: appDir, stdio: 'inherit' });
-           execSync('npm run build', { cwd: appDir, stdio: 'inherit' });
+           console.log(`Running npm install...`);
+           const installOut = execSync('npm install', { cwd: appDir, encoding: 'utf-8' });
+           buildLog += "--- NPM INSTALL ---\n" + installOut + "\n";
+           
+           console.log(`Running npm run build...`);
+           const buildOut = execSync('npm run build', { cwd: appDir, encoding: 'utf-8' });
+           buildLog += "--- NPM RUN BUILD ---\n" + buildOut + "\n";
+           
+           console.log(`Build complete!`);
        } catch (buildErr: any) {
-           console.error('Build failed for app:', slug, buildErr);
-           throw new Error(`Build failed: ${buildErr.message || "Unknown error during npm build"}`);
+           console.error('Build failed for app:', slug);
+           
+           let errorOutput = buildErr.message;
+           if (buildErr.stdout) errorOutput += '\n\nSTDOUT:\n' + buildErr.stdout;
+           if (buildErr.stderr) errorOutput += '\n\nSTDERR:\n' + buildErr.stderr;
+           
+           console.error(errorOutput);
+           
+           return NextResponse.json({ 
+             error: 'Build failed! See details below.',
+             details: errorOutput
+           }, { status: 500 });
        }
     }
 
@@ -212,7 +230,7 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ success: true, appDir });
+    return NextResponse.json({ success: true, appDir, buildLog });
   } catch (err: any) {
     console.error('Deploy error details:', err.message || err);
     return NextResponse.json({ 

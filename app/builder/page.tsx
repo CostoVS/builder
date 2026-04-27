@@ -18,6 +18,8 @@ export default function BuilderDashboard() {
   const [appName, setAppName] = useState('');
   const [slug, setSlug] = useState('');
   const [deploying, setDeploying] = useState(false);
+  const [buildLogs, setBuildLogs] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editSlug, setEditSlug] = useState('');
@@ -43,6 +45,8 @@ export default function BuilderDashboard() {
     if (!file || !appName || !slug) return;
 
     setDeploying(true);
+    setBuildLogs(null);
+    setErrorMsg(null);
     const formData = new FormData();
     formData.append('file', file);
     formData.append('name', appName);
@@ -55,18 +59,23 @@ export default function BuilderDashboard() {
       });
 
       if (res.ok) {
+        const data = await res.json();
         setAppName('');
         setSlug('');
         setFile(null);
         fetchDeployments();
+        if (data.buildLog) {
+            setBuildLogs(data.buildLog);
+        }
         alert('App deployed successfully!');
       } else {
         const data = await res.json();
-        alert(`Deployment failed: ${data.error}${data.details ? `\n\nDetails: ${data.details}` : ''}`);
+        const fullErr = `Deployment failed: ${data.error}\n\n${data.details ? data.details : ''}`;
+        setErrorMsg(fullErr);
       }
     } catch (e: any) {
       console.error(e);
-      alert(`Internal error: ${e.message}`);
+      setErrorMsg(`Internal error: ${e.message}`);
     } finally {
       setDeploying(false);
     }
@@ -194,6 +203,22 @@ export default function BuilderDashboard() {
                 {deploying ? 'Deploying...' : 'Execute Build'}
               </button>
             </form>
+
+            {(errorMsg || buildLogs) && (
+              <div className="mt-6 border-t border-slate-200 pt-6">
+                <h3 className="text-sm font-bold text-slate-800 mb-2 uppercase tracking-tight">Deploy Output</h3>
+                {errorMsg && (
+                    <div className="bg-red-50 text-red-700 italic border border-red-200 p-4 rounded-md text-xs font-mono whitespace-pre-wrap overflow-auto max-h-96">
+                        {errorMsg}
+                    </div>
+                )}
+                {buildLogs && (
+                    <div className="bg-slate-900 text-green-400 p-4 rounded-md text-xs font-mono whitespace-pre-wrap overflow-auto max-h-96 border border-slate-700 mt-4">
+                        {buildLogs}
+                    </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
