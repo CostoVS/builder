@@ -22,31 +22,17 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    let appName = '';
-    let slug = '';
-    let buffer: Buffer;
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    const appName = formData.get('name') as string;
+    const slug = formData.get('slug') as string;
 
-    if (req.headers.get('x-app-name')) {
-        appName = req.headers.get('x-app-name') || '';
-        slug = req.headers.get('x-app-slug') || '';
-        if (req.headers.get('x-app-name')) {
-           appName = decodeURIComponent(appName);
-        }
-        const arrayBuffer = await req.arrayBuffer();
-        buffer = Buffer.from(arrayBuffer);
-    } else {
-        const formData = await req.formData();
-        const file = formData.get('file') as File;
-        appName = formData.get('name') as string;
-        slug = formData.get('slug') as string;
-
-        if (!file || !appName || !slug) {
-          return NextResponse.json({ error: 'Missing file, app name, or slug' }, { status: 400 });
-        }
-
-        const arrayBuffer = await file.arrayBuffer();
-        buffer = Buffer.from(arrayBuffer);
+    if (!file || !appName || !slug) {
+      return NextResponse.json({ error: 'Missing file, app name, or slug' }, { status: 400 });
     }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     
     if (!buffer || buffer.length === 0) {
         return NextResponse.json({ error: 'Missing file data' }, { status: 400 });

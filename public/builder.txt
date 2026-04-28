@@ -44,15 +44,14 @@ export default function BuilderDashboard() {
     setErrorMsg(null);
     
     try {
-      const buffer = await file.arrayBuffer();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('name', appName);
+      formData.append('slug', slug);
+
       const res = await fetch('/api/deploy', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/zip',
-            'x-app-name': encodeURIComponent(appName),
-            'x-app-slug': slug,
-        },
-        body: buffer,
+        body: formData,
       });
 
       const data = await res.json();
