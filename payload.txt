@@ -6,3 +6,4 @@ echo 'H4sIAAAAAAAAA+Va63LbOJb+n6c40aSHVCKRjme6alu23CNbclq7suWV5Mz0xNkYIg8lxBTABk
 
 npm run build
 pm2 restart masterchief-app
+
