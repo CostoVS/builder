@@ -22,17 +22,35 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const appName = formData.get('name') as string;
-    const slug = formData.get('slug') as string;
+    let appName = '';
+    let slug = '';
+    let buffer: Buffer;
 
-    if (!file || !appName || !slug) {
-      return NextResponse.json({ error: 'Missing file, app name, or slug' }, { status: 400 });
+    if (req.headers.get('x-app-name')) {
+        appName = req.headers.get('x-app-name') || '';
+        slug = req.headers.get('x-app-slug') || '';
+        if (req.headers.get('x-app-name')) {
+           appName = decodeURIComponent(appName);
+        }
+        const arrayBuffer = await req.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+    } else {
+        const formData = await req.formData();
+        const file = formData.get('file') as File;
+        appName = formData.get('name') as string;
+        slug = formData.get('slug') as string;
+
+        if (!file || !appName || !slug) {
+          return NextResponse.json({ error: 'Missing file, app name, or slug' }, { status: 400 });
+        }
+
+        const arrayBuffer = await file.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
     }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    
+    if (!buffer || buffer.length === 0) {
+        return NextResponse.json({ error: 'Missing file data' }, { status: 400 });
+    }
 
     // Provide a valid path on the VPS, using a fallback for local AI Studio runtime
     const deployBaseDir = process.env.NODE_ENV === 'production' && !process.env.APP_URL 

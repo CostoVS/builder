@@ -32,16 +32,36 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const appName = formData.get('name') as string;
-    const slug = formData.get('slug') as string;
-    if (!file || !appName || !slug) {
-      return NextResponse.json({ error: 'Missing file, app name, or slug' }, { status: 400 });
+    let appName = '';
+    let slug = '';
+    let buffer: Buffer;
+
+    if (req.headers.get('x-app-name')) {
+        appName = req.headers.get('x-app-name') || '';
+        slug = req.headers.get('x-app-slug') || '';
+        if (req.headers.get('x-app-name')) {
+           appName = decodeURIComponent(appName);
+        }
+        const arrayBuffer = await req.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+    } else {
+        const formData = await req.formData();
+        const file = formData.get('file') as File;
+        appName = formData.get('name') as string;
+        slug = formData.get('slug') as string;
+
+        if (!file || !appName || !slug) {
+          return NextResponse.json({ error: 'Missing file, app name, or slug' }, { status: 400 });
+        }
+
+        const arrayBuffer = await file.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+    }
+    
+    if (!buffer || buffer.length === 0) {
+        return NextResponse.json({ error: 'Missing file data' }, { status: 400 });
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
     const deployBaseDir = process.env.NODE_ENV === 'production' && !process.env.APP_URL ? '/var/www/apps' : path.join(process.cwd(), '.deployments');
 
     if (!fs.existsSync(deployBaseDir)) fs.mkdirSync(deployBaseDir, { recursive: true });
@@ -216,12 +236,17 @@ export default function BuilderDashboard() {
     e.preventDefault();
     if (!file || !appName || !slug) return;
     setDeploying(true); setBuildLogs(null); setErrorMsg(null);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('name', appName);
-    formData.append('slug', slug);
     try {
-      const res = await fetch('/api/deploy', { method: 'POST', body: formData });
+      const buffer = await file.arrayBuffer();
+      const res = await fetch('/api/deploy', { 
+        method: 'POST', 
+        headers: {
+            'Content-Type': 'application/zip',
+            'x-app-name': encodeURIComponent(appName),
+            'x-app-slug': slug,
+        },
+        body: buffer 
+      });
       const data = await res.json();
       if (res.ok) {
         setAppName(''); setSlug(''); setFile(null); fetchDeployments();

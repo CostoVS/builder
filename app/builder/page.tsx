@@ -47,15 +47,17 @@ export default function BuilderDashboard() {
     setDeploying(true);
     setBuildLogs(null);
     setErrorMsg(null);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('name', appName);
-    formData.append('slug', slug);
-
+    
     try {
+      const buffer = await file.arrayBuffer();
       const res = await fetch('/api/deploy', {
         method: 'POST',
-        body: formData,
+        headers: {
+            'Content-Type': 'application/zip',
+            'x-app-name': encodeURIComponent(appName),
+            'x-app-slug': slug,
+        },
+        body: buffer,
       });
 
       if (res.ok) {
