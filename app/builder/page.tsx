@@ -37,6 +37,7 @@ export default function BuilderDashboard() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDeployments();
   }, []);
 
@@ -49,15 +50,14 @@ export default function BuilderDashboard() {
     setErrorMsg(null);
     
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('name', appName);
-      formData.append('slug', slug);
-
       const res = await fetch('/api/deploy', {
         method: 'POST',
-        // Next.js handles multipart boundaries automatically when given a FormData object
-        body: formData,
+        headers: {
+          'Content-Type': 'application/zip',
+          'x-app-name': encodeURIComponent(appName),
+          'x-app-slug': encodeURIComponent(slug)
+        },
+        body: file,
       });
 
       if (res.ok) {

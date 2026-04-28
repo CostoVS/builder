@@ -22,16 +22,19 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const appName = formData.get('name') as string;
-    const slug = formData.get('slug') as string;
-
-    if (!file || !appName || !slug) {
-      return NextResponse.json({ error: 'Missing file, app name, or slug' }, { status: 400 });
+    const isZip = req.headers.get('content-type') === 'application/zip';
+    if (!isZip) {
+      return NextResponse.json({ error: 'Content-Type must be application/zip' }, { status: 400 });
     }
 
-    const arrayBuffer = await file.arrayBuffer();
+    const appName = decodeURIComponent(req.headers.get('x-app-name') || '');
+    const slug = decodeURIComponent(req.headers.get('x-app-slug') || '');
+
+    if (!appName || !slug) {
+      return NextResponse.json({ error: 'Missing x-app-name or x-app-slug header' }, { status: 400 });
+    }
+
+    const arrayBuffer = await req.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
     if (!buffer || buffer.length === 0) {
