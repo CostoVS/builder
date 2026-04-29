@@ -121,6 +121,20 @@ export async function POST(req: Request) {
                 let content = fs.readFileSync(fullPath, 'utf8');
                 let changed = false;
                 
+                // Fix Next.js App Router hallucination (importing Html, Head from next/document outside _document)
+                if (file !== '_document.tsx' && file !== '_document.js' && file !== '_document.jsx' && file !== '_document.ts') {
+                    if (content.includes('next/document')) {
+                        content = content.replace(/import\s+[^'"]*['"]next\/document['"];?/g, '');
+                        content = content.replace(/<Html(>|\s[^>]*>)/g, '<html$1');
+                        content = content.replace(/<\/Html>/g, '</html>');
+                        content = content.replace(/<Head(>|\s[^>]*>)/g, '<head$1');
+                        content = content.replace(/<\/Head>/g, '</head>');
+                        content = content.replace(/<Main\s*\/>/g, '{typeof children !== "undefined" ? children : null}');
+                        content = content.replace(/<NextScript\s*\/>/g, '');
+                        changed = true;
+                    }
+                }
+
                 // 1. Raw vanilla location checks
                 if (content.match(/window\.location\.pathname === ['"]\/['"]/)) {
                     content = content.replace(/window\.location\.pathname === ['"]\/['"]/g, `(window.location.pathname === '/' || window.location.pathname === '/${slug}' || window.location.pathname === '/${slug}/')`);
@@ -178,6 +192,9 @@ export async function POST(req: Request) {
         }
     };
     patchReactSource(path.join(appDir, 'src'));
+    patchReactSource(path.join(appDir, 'app'));
+    patchReactSource(path.join(appDir, 'pages'));
+    patchReactSource(path.join(appDir, 'components'));
 
     // Build the app if package.json exists
     let buildLog = '';
@@ -209,7 +226,10 @@ export async function POST(req: Request) {
            }
 
            console.log(`Running npm run build...`);
-           const buildOut = execSync('npm run build', { cwd: appDir, encoding: 'utf-8', env: execEnv });
+           // Create a clean env for build
+           const buildEnv = { ...process.env };
+           delete buildEnv.NODE_ENV; // Let NextJS default to production
+           const buildOut = execSync('npm run build', { cwd: appDir, encoding: 'utf-8', env: buildEnv });
            buildLog += "--- NPM RUN BUILD ---\n" + buildOut + "\n";
            
            console.log(`Build complete!`);
