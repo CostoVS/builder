@@ -185,12 +185,31 @@ export async function POST(req: Request) {
     if (fs.existsSync(path.join(appDir, 'package.json'))) {
        try {
            console.log(`Building app at ${appDir}...`);
+           
+           // Ensure local lockfile exists so Next.js and NPM don't traverse up into the VPS root
+           if (!fs.existsSync(path.join(appDir, 'package-lock.json'))) {
+               fs.writeFileSync(path.join(appDir, 'package-lock.json'), JSON.stringify({
+                   name: "deployed-app",
+                   lockfileVersion: 3,
+                   requires: true,
+                   packages: {}
+               }));
+           }
+
            console.log(`Running npm install...`);
-           const installOut = execSync('npm install', { cwd: appDir, encoding: 'utf-8' });
+           // Force NODE_ENV to development so devDependencies (like typescript) are installed
+           const execEnv = { ...process.env, NODE_ENV: 'development' };
+           const installOut = execSync('npm install --include=dev', { cwd: appDir, encoding: 'utf-8', env: execEnv });
            buildLog += "--- NPM INSTALL ---\n" + installOut + "\n";
            
+           // Defensive fix: NextJS auto-install of typescript often fails resolving upwards because of outer package-lock.json
+           if (fs.existsSync(path.join(appDir, 'next.config.ts')) || fs.existsSync(path.join(appDir, 'tsconfig.json'))) {
+               console.log(`Ensuring typescript is installed locally...`);
+               execSync('npm install typescript @types/node @types/react --no-save', { cwd: appDir, encoding: 'utf-8', env: execEnv });
+           }
+
            console.log(`Running npm run build...`);
-           const buildOut = execSync('npm run build', { cwd: appDir, encoding: 'utf-8' });
+           const buildOut = execSync('npm run build', { cwd: appDir, encoding: 'utf-8', env: execEnv });
            buildLog += "--- NPM RUN BUILD ---\n" + buildOut + "\n";
            
            console.log(`Build complete!`);
