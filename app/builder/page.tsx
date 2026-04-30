@@ -20,6 +20,7 @@ export default function BuilderDashboard() {
   const [deploying, setDeploying] = useState(false);
   const [buildLogs, setBuildLogs] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editSlug, setEditSlug] = useState('');
@@ -28,11 +29,21 @@ export default function BuilderDashboard() {
 
   const fetchDeployments = async () => {
     try {
+      setFetchError(null);
       const res = await fetch('/api/deploy');
+      if (!res.ok) {
+          setFetchError(`Fetch failed: ${res.status}`);
+          return;
+      }
       const data = await res.json();
-      if (Array.isArray(data)) setDeployments(data);
-    } catch (e) {
+      if (Array.isArray(data)) {
+          setDeployments(data);
+      } else {
+          setFetchError('Invalid data received from server');
+      }
+    } catch (e: any) {
       console.error(e);
+      setFetchError(`Error: ${e.message}`);
     }
   };
 
@@ -238,7 +249,13 @@ export default function BuilderDashboard() {
             </div>
             
             <div className="divide-y divide-slate-800/50 flex-1 overflow-auto">
-              {deployments.length === 0 ? (
+              {fetchError ? (
+                  <div className="p-12 text-center text-red-400 font-mono text-sm bg-red-950/20">
+                      <p className="font-bold uppercase mb-2">Sync Error</p>
+                      <p>{fetchError}</p>
+                      <button onClick={fetchDeployments} className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs">Try Again</button>
+                  </div>
+              ) : deployments.length === 0 ? (
                 <div className="p-12 text-center text-slate-500 font-mono text-sm">
                   No deployments yet. Upload a ZIP file to get started.
                 </div>
@@ -246,7 +263,7 @@ export default function BuilderDashboard() {
                 deployments.map((dep) => (
                   <div key={dep.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-slate-800/30 transition-colors group gap-4">
                     <div className="flex items-start gap-4 w-full sm:w-auto overflow-hidden">
-                      <div className="w-10 h-10 rounded-md bg-slate-950 border border-slate-800 flex items-center justify-center shrink-0 group-hover:border-indigo-500/30 group-hover:bg-indigo-900/20 transition-colors">
+                      <div className="w-10 h-10 rounded-md bg-slate-950 border border-slate-800 flex items-center justify-center shrink-0 border-indigo-500/30 bg-indigo-900/20 transition-colors">
                         <Server className="w-5 h-5 text-indigo-400" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -276,13 +293,13 @@ export default function BuilderDashboard() {
                                 rel="noopener noreferrer"
                                 className="hover:text-indigo-400 transition-colors hover:underline truncate"
                               >
-                                masterchief.co.za/{dep.slug}
+                                masterchief.co.za/{dep.slug || 'untitled'}
                               </a>
                             </div>
                             <button 
                                 onClick={() => {
                                     setEditingId(dep.id);
-                                    setEditSlug(dep.slug);
+                                    setEditSlug(dep.slug || '');
                                 }}
                                 className="text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 bg-slate-950 border border-slate-800 px-2 py-1 rounded shadow-sm shrink-0"
                                 title="Edit Path"
@@ -295,25 +312,25 @@ export default function BuilderDashboard() {
                     </div>
                     
                     <div className="flex flex-row items-center justify-between sm:justify-end gap-4 sm:gap-6 w-full sm:w-auto pt-2 sm:pt-0 border-t border-slate-800 sm:border-0">
-                      <div className="flex items-center gap-1 sm:gap-2 transition-opacity">
-                        <a href={`https://masterchief.co.za/${dep.slug}`} target="_blank" rel="noopener noreferrer" className="p-2 sm:p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-900/20 rounded border border-transparent hover:border-indigo-800/50 transition-all" title="View Site">
-                          <Eye className="w-4 h-4 sm:w-4 sm:h-4" />
+                      <div className="flex items-center gap-3 transition-opacity">
+                        <a href={`https://masterchief.co.za/${dep.slug}`} target="_blank" rel="noopener noreferrer" className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-900/20 rounded border border-slate-800 transition-all" title="View Site">
+                          <Eye className="w-4 h-4" />
                         </a>
-                        <a href={`/api/download/${dep.id}`} download className="p-2 sm:p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-900/20 rounded border border-transparent hover:border-indigo-800/50 transition-all" title="Download Source Zip">
-                          <Download className="w-4 h-4 sm:w-4 sm:h-4" />
+                        <a href={`/api/download/${dep.id}`} download className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-900/20 rounded border border-slate-800 transition-all" title="Download Source Zip">
+                          <Download className="w-4 h-4" />
                         </a>
-                        <button onClick={() => handleDelete(dep.id)} className="p-2 sm:p-2 text-slate-400 hover:text-red-400 hover:bg-red-950 rounded border border-transparent hover:border-red-900/50 transition-all" title="Delete Deployment">
-                          <Trash2 className="w-4 h-4 sm:w-4 sm:h-4" />
+                        <button onClick={() => handleDelete(dep.id)} className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-950 rounded border border-slate-800 transition-all" title="Delete Deployment">
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <div className="flex flex-col items-end gap-1.5 shrink-0 min-w-[80px]">
                         <span className="flex items-center gap-1.5 text-[10px] font-bold text-green-400 bg-green-950 px-2 py-0.5 rounded uppercase tracking-wider border border-green-900/50">
                           <CheckCircle className="w-3 h-3 text-green-500" />
-                          {dep.status}
+                          {dep.status || 'unknown'}
                         </span>
                         <span className="text-[9px] sm:text-[10px] text-slate-500 font-medium uppercase tracking-widest">
-                          {new Date(dep.created_at).toLocaleDateString()}
+                          {dep.created_at ? new Date(dep.created_at).toLocaleDateString() : 'no date'}
                         </span>
                       </div>
                     </div>
