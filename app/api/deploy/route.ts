@@ -128,17 +128,23 @@ export async function POST(req: Request) {
             let content = fs.readFileSync(configPath, 'utf8');
             if (!content.includes('output:') && !content.includes("'export'") && !content.includes('"export"')) {
                 // Inject output: 'export' and images: { unoptimized: true }
-                if (content.includes('nextConfig = {')) {
-                    content = content.replace('nextConfig = {', "nextConfig = {\n  output: 'export',\n  images: { unoptimized: true },");
-                } else if (content.includes('const nextConfig = {')) {
-                    content = content.replace('const nextConfig = {', "const nextConfig = {\n  output: 'export',\n  images: { unoptimized: true },");
-                } else if (content.includes('export default {')) {
-                    content = content.replace('export default {', "export default {\n  output: 'export',\n  images: { unoptimized: true },");
-                } else if (content.includes('module.exports = {')) {
-                    content = content.replace('module.exports = {', "module.exports = {\n  output: 'export',\n  images: { unoptimized: true },");
+                // Use a more robust regex to handle typed and untyped config declarations
+                const configRegex = /(const|let|var|export default|module\.exports)\s+(nextConfig\s*(?::\s*NextConfig)?\s*=\s*)?\{/;
+                if (configRegex.test(content)) {
+                    content = content.replace(configRegex, (match) => {
+                        return `${match}\n  output: 'export',\n  images: { unoptimized: true },`;
+                    });
+                    fs.writeFileSync(configPath, content);
+                    console.log(`Injected output: 'export' into ${file}`);
+                } else {
+                    // Fallback for extremely simple configs
+                    if (content.includes('export default {')) {
+                         content = content.replace('export default {', "export default {\n  output: 'export',\n  images: { unoptimized: true },");
+                    } else if (content.includes('module.exports = {')) {
+                         content = content.replace('module.exports = {', "module.exports = {\n  output: 'export',\n  images: { unoptimized: true },");
+                    }
+                    fs.writeFileSync(configPath, content);
                 }
-                fs.writeFileSync(configPath, content);
-                console.log(`Injected output: 'export' into ${file}`);
             }
         }
     }
@@ -286,12 +292,15 @@ export async function POST(req: Request) {
     // Post-Build fixes for Subpath deployment blanks (Fixing Absolute Paths)
     const builtIndexPathDist = path.join(appDir, 'dist', 'index.html');
     const builtIndexPathOut = path.join(appDir, 'out', 'index.html');
+    const builtIndexPathBuild = path.join(appDir, 'build', 'index.html');
     let finalIndexToPatch = indexPath;
 
     if (fs.existsSync(builtIndexPathDist)) {
         finalIndexToPatch = builtIndexPathDist;
     } else if (fs.existsSync(builtIndexPathOut)) {
         finalIndexToPatch = builtIndexPathOut;
+    } else if (fs.existsSync(builtIndexPathBuild)) {
+        finalIndexToPatch = builtIndexPathBuild;
     }
 
     if (fs.existsSync(finalIndexToPatch)) {

@@ -64,12 +64,15 @@ export async function GET(
     let targetPath = '';
     const distPath = path.join(appDir, 'dist');
     const outPath = path.join(appDir, 'out');
+    const buildPath = path.join(appDir, 'build');
     let searchRoot = appDir;
 
     if (fs.existsSync(distPath)) {
         searchRoot = distPath;
     } else if (fs.existsSync(outPath)) {
         searchRoot = outPath;
+    } else if (fs.existsSync(buildPath)) {
+        searchRoot = buildPath;
     }
     
     if (relativePath === '') {
@@ -88,7 +91,7 @@ export async function GET(
     }
 
     if (!fs.existsSync(targetPath)) {
-        return new NextResponse(`File Not Found: ${relativePath}`, { status: 404 });
+        return new NextResponse(`Not found (Path: ${relativePath || 'index.html'}, SearchRoot: ${searchRoot})`, { status: 404 });
     }
 
     const ext = path.extname(targetPath).toLowerCase();
