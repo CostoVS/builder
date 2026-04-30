@@ -65,6 +65,7 @@ export async function GET(
     const distPath = path.join(appDir, 'dist');
     const outPath = path.join(appDir, 'out');
     const buildPath = path.join(appDir, 'build');
+    const nextStaticPath = path.join(appDir, '.next', 'server', 'app');
     let searchRoot = appDir;
 
     if (fs.existsSync(distPath)) {
@@ -73,6 +74,8 @@ export async function GET(
         searchRoot = outPath;
     } else if (fs.existsSync(buildPath)) {
         searchRoot = buildPath;
+    } else if (fs.existsSync(nextStaticPath)) {
+        searchRoot = nextStaticPath;
     }
     
     if (relativePath === '') {

@@ -129,25 +129,38 @@ export async function POST(req: Request) {
             if (!content.includes('output:') && !content.includes("'export'") && !content.includes('"export"')) {
                 console.log(`Detected Next.js app in ${slug}, injecting static export...`);
                 
+                const injection = "\n// --- MASTERCHIEF STATIC EXPORT INJECTION ---\n" +
+                                 "if (typeof module !== 'undefined') {\n" +
+                                 "  const originalExport = module.exports;\n" +
+                                 "  module.exports = async (phase, { defaultConfig }) => {\n" +
+                                 "    const config = typeof originalExport === 'function' ? await originalExport(phase, { defaultConfig }) : originalExport || {};\n" +
+                                 "    return { ...config, output: 'export', images: { unoptimized: true } };\n" +
+                                 "  };\n" +
+                                 "} else {\n" +
+                                 "  // ESM Fallback\n" +
+                                 "  // We will try to overwrite the file with a simple working config if complex ESM is used\n" +
+                                 "}\n";
+
                 // If it's a simple export default or module.exports, try to wrap it or inject into it
                 if (content.includes('export default')) {
                     if (content.includes('nextConfig = {')) {
                          content = content.replace('nextConfig = {', "nextConfig = {\n  output: 'export',\n  images: { unoptimized: true },");
-                    } else if (content.match(/export default\s+\{/)) {
-                         content = content.replace(/export default\s+\{/, "export default { output: 'export', images: { unoptimized: true }, ");
                     } else {
-                         // Wrap the existing export if it's a variable
-                         content += "\n// Injected by Masterchief Builder\nif (typeof nextConfig !== 'undefined') { nextConfig.output = 'export'; nextConfig.images = { unoptimized: true }; }";
+                         // ESM is harder to wrap dynamically without analysis, so we do a surgical injection
+                         content = "/** @type {import('next').NextConfig} */\n" + 
+                                   "const _mcConfig = { output: 'export', images: { unoptimized: true } };\n" + 
+                                   content.replace(/export default\s+/, "const _userConfig = ") + 
+                                   "\nexport default { ...(_userConfig || {}), ..._mcConfig };";
                     }
                 } else if (content.includes('module.exports')) {
-                    content += "\n// Injected by Masterchief Builder\nif (typeof module !== 'undefined' && module.exports) { if (typeof module.exports === 'object') { module.exports.output = 'export'; module.exports.images = { unoptimized: true }; } }";
+                    content += injection;
                 } else {
-                    // Fallback: overwrite the file with a basic working config if we can't patch
+                    // Fallback: overwrite the file with a basic working config
                     content = "/** @type {import('next').NextConfig} */\nconst nextConfig = {\n  output: 'export',\n  images: { unoptimized: true },\n};\nexport default nextConfig;";
                 }
                 
                 fs.writeFileSync(configPath, content);
-                console.log(`Injected output: 'export' into ${file}. Content preview: ${content.substring(0, 200)}`);
+                console.log(`Injected output: 'export' into ${file}.`);
             }
         }
     }

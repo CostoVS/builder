@@ -16,18 +16,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     
     // Default to index.html if no file specified
     if (!requestedPath || requestedPath === '') {
-        // Try dist/index.html first, then out/index.html, then build/index.html, then index.html
+        // Try dist/index.html first, then out/index.html, then build/index.html, then .next/.../index.html, then index.html
         if (fs.existsSync(path.join(appDir, 'dist', 'index.html'))) {
             requestedPath = 'dist/index.html';
         } else if (fs.existsSync(path.join(appDir, 'out', 'index.html'))) {
             requestedPath = 'out/index.html';
         } else if (fs.existsSync(path.join(appDir, 'build', 'index.html'))) {
             requestedPath = 'build/index.html';
+        } else if (fs.existsSync(path.join(appDir, '.next', 'server', 'app', 'index.html'))) {
+            requestedPath = '.next/server/app/index.html';
         } else {
             requestedPath = 'index.html';
         }
     } else {
-        // If they requested a file, but the app has a dist, out, or build folder, 
+        // If they requested a file, but the app has a dist, out, build or .next folder, 
         // try looking in them first for assets, unless the file already exists at root.
         if (!fs.existsSync(path.join(appDir, requestedPath))) {
             if (fs.existsSync(path.join(appDir, 'dist', requestedPath))) {
@@ -36,6 +38,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
                 requestedPath = path.join('out', requestedPath);
             } else if (fs.existsSync(path.join(appDir, 'build', requestedPath))) {
                 requestedPath = path.join('build', requestedPath);
+            } else if (fs.existsSync(path.join(appDir, '.next', 'server', 'app', requestedPath))) {
+                requestedPath = path.join('.next', 'server', 'app', requestedPath);
             }
         }
     }
@@ -52,6 +56,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
         const distFallback = path.join(appDir, 'dist', 'index.html');
         const outFallback = path.join(appDir, 'out', 'index.html');
         const buildFallback = path.join(appDir, 'build', 'index.html');
+        const nextFallback = path.join(appDir, '.next', 'server', 'app', 'index.html');
         const rootFallback = path.join(appDir, 'index.html');
 
         let fallbackPath = '';
@@ -61,6 +66,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
             fallbackPath = outFallback;
         } else if (fs.existsSync(buildFallback)) {
             fallbackPath = buildFallback;
+        } else if (fs.existsSync(nextFallback)) {
+            fallbackPath = nextFallback;
         } else if (fs.existsSync(rootFallback)) {
             fallbackPath = rootFallback;
         }
