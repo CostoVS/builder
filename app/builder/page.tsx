@@ -284,7 +284,7 @@ export default function BuilderDashboard() {
                                     setEditingId(dep.id);
                                     setEditSlug(dep.slug);
                                 }}
-                                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 bg-slate-950 border border-slate-800 px-2 py-1 rounded shadow-sm shrink-0"
+                                className="text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 bg-slate-950 border border-slate-800 px-2 py-1 rounded shadow-sm shrink-0"
                                 title="Edit Path"
                             >
                               <Edit2 className="w-3 h-3" /> <span className="text-[9px] uppercase tracking-widest font-sans font-bold">Edit</span>
@@ -295,7 +295,7 @@ export default function BuilderDashboard() {
                     </div>
                     
                     <div className="flex flex-row items-center justify-between sm:justify-end gap-4 sm:gap-6 w-full sm:w-auto pt-2 sm:pt-0 border-t border-slate-800 sm:border-0">
-                      <div className="flex items-center gap-1 sm:gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 sm:gap-2 transition-opacity">
                         <a href={`https://masterchief.co.za/${dep.slug}`} target="_blank" rel="noopener noreferrer" className="p-2 sm:p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-900/20 rounded border border-transparent hover:border-indigo-800/50 transition-all" title="View Site">
                           <Eye className="w-4 h-4 sm:w-4 sm:h-4" />
                         </a>
