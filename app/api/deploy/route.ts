@@ -122,29 +122,32 @@ export async function POST(req: Request) {
     }
 
     // NEXT.JS STATIC EXPORT FIX
-    for (const file of ['next.config.ts', 'next.config.js', 'next.config.mjs']) {
+    for (const file of ['next.config.ts', 'next.config.js', 'next.config.mjs', 'next.config.cjs']) {
         const configPath = path.join(appDir, file);
         if (fs.existsSync(configPath)) {
             let content = fs.readFileSync(configPath, 'utf8');
             if (!content.includes('output:') && !content.includes("'export'") && !content.includes('"export"')) {
-                // Inject output: 'export' and images: { unoptimized: true }
-                // Use a more robust regex to handle typed and untyped config declarations
-                const configRegex = /(const|let|var|export default|module\.exports)\s+(nextConfig\s*(?::\s*NextConfig)?\s*=\s*)?\{/;
-                if (configRegex.test(content)) {
-                    content = content.replace(configRegex, (match) => {
-                        return `${match}\n  output: 'export',\n  images: { unoptimized: true },`;
-                    });
-                    fs.writeFileSync(configPath, content);
-                    console.log(`Injected output: 'export' into ${file}`);
-                } else {
-                    // Fallback for extremely simple configs
-                    if (content.includes('export default {')) {
-                         content = content.replace('export default {', "export default {\n  output: 'export',\n  images: { unoptimized: true },");
-                    } else if (content.includes('module.exports = {')) {
-                         content = content.replace('module.exports = {', "module.exports = {\n  output: 'export',\n  images: { unoptimized: true },");
+                console.log(`Detected Next.js app in ${slug}, injecting static export...`);
+                
+                // If it's a simple export default or module.exports, try to wrap it or inject into it
+                if (content.includes('export default')) {
+                    if (content.includes('nextConfig = {')) {
+                         content = content.replace('nextConfig = {', "nextConfig = {\n  output: 'export',\n  images: { unoptimized: true },");
+                    } else if (content.match(/export default\s+\{/)) {
+                         content = content.replace(/export default\s+\{/, "export default { output: 'export', images: { unoptimized: true }, ");
+                    } else {
+                         // Wrap the existing export if it's a variable
+                         content += "\n// Injected by Masterchief Builder\nif (typeof nextConfig !== 'undefined') { nextConfig.output = 'export'; nextConfig.images = { unoptimized: true }; }";
                     }
-                    fs.writeFileSync(configPath, content);
+                } else if (content.includes('module.exports')) {
+                    content += "\n// Injected by Masterchief Builder\nif (typeof module !== 'undefined' && module.exports) { if (typeof module.exports === 'object') { module.exports.output = 'export'; module.exports.images = { unoptimized: true }; } }";
+                } else {
+                    // Fallback: overwrite the file with a basic working config if we can't patch
+                    content = "/** @type {import('next').NextConfig} */\nconst nextConfig = {\n  output: 'export',\n  images: { unoptimized: true },\n};\nexport default nextConfig;";
                 }
+                
+                fs.writeFileSync(configPath, content);
+                console.log(`Injected output: 'export' into ${file}. Content preview: ${content.substring(0, 200)}`);
             }
         }
     }

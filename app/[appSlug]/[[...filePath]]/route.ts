@@ -96,6 +96,16 @@ export async function GET(
         try {
             const items = fs.readdirSync(appDir);
             debugDirListing = ` (Directory contains: ${items.join(', ')})`;
+            
+            // Check for next.config content if it exists
+            const nextFiles = ['next.config.ts', 'next.config.js', 'next.config.mjs'];
+            for (const f of nextFiles) {
+                const p = path.join(appDir, f);
+                if (fs.existsSync(p)) {
+                    const content = fs.readFileSync(p, 'utf8');
+                    debugDirListing += ` | ${f} content: ${content.substring(0, 100)}...`;
+                }
+            }
         } catch (e) {
             debugDirListing = ` (Could not read directory)`;
         }
