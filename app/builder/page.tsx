@@ -124,11 +124,13 @@ export default function BuilderDashboard() {
 
 
   const handleLogout = async () => {
-    // Simply removing cookie on client/server via an API would be best,
-    // but for this UI we can clear document cookie if it wasn't HttpOnly.
-    // It's HttpOnly, so we'd need a logout route. Let's just navigate to login 
-    // and let an actual logout endpoint handle it if added.
-    router.push('/');
+    try {
+      await fetch('/api/auth', { method: 'DELETE' });
+      window.location.reload();
+    } catch (e) {
+      console.error('Logout failed', e);
+      window.location.reload();
+    }
   };
 
   return (

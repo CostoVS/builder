@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+export async function DELETE() {
+  const cookieStore = await cookies();
+  cookieStore.delete('builder_auth');
+  return NextResponse.json({ success: true });
+}
+
 export async function POST(req: Request) {
   try {
     const { username, password } = await req.json();
