@@ -60,10 +60,17 @@ export async function GET(
         return new NextResponse(`App Not Found: ${slug}`, { status: 404 });
     }
 
-    // Determine if it's a Vite build (dist) or normal root
+    // Determine if it's a Vite build (dist), Next scale (out), or normal root
     let targetPath = '';
     const distPath = path.join(appDir, 'dist');
-    const searchRoot = fs.existsSync(distPath) ? distPath : appDir;
+    const outPath = path.join(appDir, 'out');
+    let searchRoot = appDir;
+
+    if (fs.existsSync(distPath)) {
+        searchRoot = distPath;
+    } else if (fs.existsSync(outPath)) {
+        searchRoot = outPath;
+    }
     
     if (relativePath === '') {
         // Try serving index.html

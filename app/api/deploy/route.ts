@@ -121,6 +121,28 @@ export async function POST(req: Request) {
         }
     }
 
+    // NEXT.JS STATIC EXPORT FIX
+    for (const file of ['next.config.ts', 'next.config.js', 'next.config.mjs']) {
+        const configPath = path.join(appDir, file);
+        if (fs.existsSync(configPath)) {
+            let content = fs.readFileSync(configPath, 'utf8');
+            if (!content.includes('output:') && !content.includes("'export'") && !content.includes('"export"')) {
+                // Inject output: 'export' and images: { unoptimized: true }
+                if (content.includes('nextConfig = {')) {
+                    content = content.replace('nextConfig = {', "nextConfig = {\n  output: 'export',\n  images: { unoptimized: true },");
+                } else if (content.includes('const nextConfig = {')) {
+                    content = content.replace('const nextConfig = {', "const nextConfig = {\n  output: 'export',\n  images: { unoptimized: true },");
+                } else if (content.includes('export default {')) {
+                    content = content.replace('export default {', "export default {\n  output: 'export',\n  images: { unoptimized: true },");
+                } else if (content.includes('module.exports = {')) {
+                    content = content.replace('module.exports = {', "module.exports = {\n  output: 'export',\n  images: { unoptimized: true },");
+                }
+                fs.writeFileSync(configPath, content);
+                console.log(`Injected output: 'export' into ${file}`);
+            }
+        }
+    }
+
     // Deep scan all components to inject React Router basenames and fix raw location checks
     const patchReactSource = (dir: string) => {
         if (!fs.existsSync(dir)) return;
@@ -262,8 +284,16 @@ export async function POST(req: Request) {
     }
 
     // Post-Build fixes for Subpath deployment blanks (Fixing Absolute Paths)
-    const builtIndexPath = path.join(appDir, 'dist', 'index.html');
-    const finalIndexToPatch = fs.existsSync(builtIndexPath) ? builtIndexPath : indexPath;
+    const builtIndexPathDist = path.join(appDir, 'dist', 'index.html');
+    const builtIndexPathOut = path.join(appDir, 'out', 'index.html');
+    let finalIndexToPatch = indexPath;
+
+    if (fs.existsSync(builtIndexPathDist)) {
+        finalIndexToPatch = builtIndexPathDist;
+    } else if (fs.existsSync(builtIndexPathOut)) {
+        finalIndexToPatch = builtIndexPathOut;
+    }
+
     if (fs.existsSync(finalIndexToPatch)) {
         let content = fs.readFileSync(finalIndexToPatch, 'utf-8');
         
