@@ -71,7 +71,9 @@ export default function BuilderDashboard() {
         }
         alert('App deployed successfully!');
       } else {
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch(e) { setErrorMsg('Deployment failed: HTTP ' + res.status + '\n' + text.substring(0, 300)); return; }
         const fullErr = `Deployment failed: ${data.error}\n\n${data.details ? data.details : ''}`;
         setErrorMsg(fullErr);
       }
