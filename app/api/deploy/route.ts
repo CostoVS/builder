@@ -129,34 +129,62 @@ export async function POST(req: Request) {
             if (!content.includes('output:') && !content.includes("'export'") && !content.includes('"export"')) {
                 console.log(`Detected Next.js app in ${slug}, injecting static export...`);
                 
-                const injection = "\n// --- MASTERCHIEF STATIC EXPORT INJECTION ---\n" +
-                                 "if (typeof module !== 'undefined') {\n" +
-                                 "  const originalExport = module.exports;\n" +
-                                 "  module.exports = async (phase, { defaultConfig }) => {\n" +
-                                 "    const config = typeof originalExport === 'function' ? await originalExport(phase, { defaultConfig }) : originalExport || {};\n" +
-                                 "    return { ...config, output: 'export', images: { unoptimized: true } };\n" +
-                                 "  };\n" +
-                                 "} else {\n" +
-                                 "  // ESM Fallback\n" +
-                                 "  // We will try to overwrite the file with a simple working config if complex ESM is used\n" +
-                                 "}\n";
-
-                // If it's a simple export default or module.exports, try to wrap it or inject into it
-                if (content.includes('export default')) {
-                    if (content.includes('nextConfig = {')) {
-                         content = content.replace('nextConfig = {', "nextConfig = {\n  output: 'export',\n  images: { unoptimized: true },");
-                    } else {
-                         // ESM is harder to wrap dynamically without analysis, so we do a surgical injection
-                         content = "/** @type {import('next').NextConfig} */\n" + 
-                                   "const _mcConfig = { output: 'export', images: { unoptimized: true } };\n" + 
-                                   content.replace(/export default\s+/, "const _userConfig = ") + 
-                                   "\nexport default { ...(_userConfig || {}), ..._mcConfig };";
-                    }
-                } else if (content.includes('module.exports')) {
-                    content += injection;
-                } else {
-                    // Fallback: overwrite the file with a basic working config
-                    content = "/** @type {import('next').NextConfig} */\nconst nextConfig = {\n  output: 'export',\n  images: { unoptimized: true },\n};\nexport default nextConfig;";
+                // We will overwrite the config with a standard export config if we can't reliably patch it.
+                // It is critical to enforce `output: "export"` for the static file server to work.
+                
+                let patched = false;
+                
+                if (content.match(/export default\s+([A-Za-z0-9_]+)/)) {
+                    // It exports a variable (e.g. export default nextConfig)
+                    content = content.replace(/export default\s+([A-Za-z0-9_]+)/, 
+                        "// Injected by Masterchief Builder\n" +
+                        "if (typeof $1 === 'object') {\n" + 
+                        "  $1.output = 'export';\n" + 
+                        "  $1.images = { unoptimized: true };\n" + 
+                        "  $1.basePath = '/" + slug + "';\n" +
+                        "  $1.assetPrefix = '/" + slug + "/';\n" +
+                        "}\n" + 
+                        "export default $1"
+                    );
+                    patched = true;
+                } else if (content.includes('export default {')) {
+                    // It exports an object literal directly
+                    content = content.replace('export default {', "export default { output: 'export', images: { unoptimized: true }, basePath: '/" + slug + "', assetPrefix: '/" + slug + "/', ");
+                    patched = true;
+                } else if (content.includes('module.exports = {')) {
+                    // CJS export object literal
+                    content = content.replace('module.exports = {', "module.exports = { output: 'export', images: { unoptimized: true }, basePath: '/" + slug + "', assetPrefix: '/" + slug + "/', ");
+                    patched = true;
+                } else if (content.match(/module\.exports\s*=\s*([A-Za-z0-9_]+)/)) {
+                    // CJS exports a variable
+                    content = content.replace(/module\.exports\s*=\s*([A-Za-z0-9_]+)/, 
+                        "// Injected by Masterchief Builder\n" +
+                        "if (typeof $1 === 'object') {\n" + 
+                        "  $1.output = 'export';\n" + 
+                        "  $1.images = { unoptimized: true };\n" + 
+                        "  $1.basePath = '/" + slug + "';\n" +
+                        "  $1.assetPrefix = '/" + slug + "/';\n" +
+                        "}\n" + 
+                        "module.exports = $1"
+                    );
+                    patched = true;
+                }
+                
+                if (!patched) {
+                    // Nuke and replace with a standard export config that works across TS and JS
+                    content = `/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'export',
+  images: { unoptimized: true },
+  basePath: '/${slug}',
+  assetPrefix: '/${slug}/'
+};
+// Use CJS/ESM hybrid compatibility or just ESM depending on extension
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = nextConfig;
+} else {
+    export default nextConfig;
+}`;
                 }
                 
                 fs.writeFileSync(configPath, content);
