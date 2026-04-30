@@ -71,7 +71,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
                  headers: { 'Content-Type': 'text/html' }
              });
         }
-        return new NextResponse(`Not found (Path: ${requestedPath}) in appDir ${appDir}`, { status: 404 });
+        
+        // Final fallback: list files in the directory to see what's actually there
+        let debugDirListing = '';
+        try {
+            const items = fs.readdirSync(appDir);
+            debugDirListing = ` (Directory contains: ${items.join(', ')})`;
+        } catch (e) {
+            debugDirListing = ` (Could not read directory)`;
+        }
+
+        return new NextResponse(`Not found (Path: ${requestedPath}) in appDir ${appDir}${debugDirListing}`, { status: 404 });
     }
 
     const stat = fs.statSync(fullPath);

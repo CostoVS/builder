@@ -273,6 +273,23 @@ export async function POST(req: Request) {
            buildLog += "--- NPM RUN BUILD ---\n" + buildOut + "\n";
            
            console.log(`Build complete!`);
+           
+           // LOG BUILT STRUCTURE
+           try {
+               const rootFiles = fs.readdirSync(appDir);
+               console.log(`Root files: ${rootFiles.join(', ')}`);
+               if (fs.existsSync(path.join(appDir, 'dist'))) {
+                   console.log(`Dist folder exists, files: ${fs.readdirSync(path.join(appDir, 'dist')).join(', ')}`);
+               }
+               if (fs.existsSync(path.join(appDir, 'out'))) {
+                   console.log(`Out folder exists, files: ${fs.readdirSync(path.join(appDir, 'out')).join(', ')}`);
+               }
+               if (fs.existsSync(path.join(appDir, 'build'))) {
+                   console.log(`Build folder exists, files: ${fs.readdirSync(path.join(appDir, 'build')).join(', ')}`);
+               }
+           } catch (diagErr) {
+               console.error('Failed to log built structure:', diagErr);
+           }
        } catch (buildErr: any) {
            console.error('Build failed for app:', slug);
            
