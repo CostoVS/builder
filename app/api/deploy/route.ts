@@ -4,6 +4,17 @@ import AdmZip from 'adm-zip';
 import fs from 'fs';
 import path from 'path';
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE, PATCH',
+      'Access-Control-Allow-Headers': 'Content-Type, x-app-name, x-app-slug',
+    },
+  });
+}
+
 export async function GET() {
   const db = getDb();
   if (!db) {
@@ -27,8 +38,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Content-Type must be application/zip' }, { status: 400 });
     }
 
-    const appName = decodeURIComponent(req.headers.get('x-app-name') || '');
-    const slug = decodeURIComponent(req.headers.get('x-app-slug') || '');
+    const url = new URL(req.url);
+    const appName = url.searchParams.get('app-name') || '';
+    const slug = url.searchParams.get('app-slug') || '';
 
     if (!appName || !slug) {
       return NextResponse.json({ error: 'Missing x-app-name or x-app-slug header' }, { status: 400 });

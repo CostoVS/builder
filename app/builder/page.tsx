@@ -50,12 +50,10 @@ export default function BuilderDashboard() {
     setErrorMsg(null);
     
     try {
-      const res = await fetch('/api/deploy', {
+      const res = await fetch(`/api/deploy?app-name=${encodeURIComponent(appName)}&app-slug=${encodeURIComponent(slug)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/zip',
-          'x-app-name': encodeURIComponent(appName),
-          'x-app-slug': encodeURIComponent(slug)
         },
         body: file,
       });
